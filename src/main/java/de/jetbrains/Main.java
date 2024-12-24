@@ -1,52 +1,69 @@
 package de.jetbrains;
 
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
 
 public class Main extends JFrame {
-    private JLabel photoLabel;
-    final int width = 800, height = 800;
+    private JLabel sprite;
+    private ImageIcon photo;
+    private int originalWidth, originalHeight;
+    private double currentScale = 0.25; // Start at 1/4 scale
+
+    enum Direction {
+        UP, DOWN, LEFT, RIGHT, UNDEFINED;
+    }
+
+    private Direction enterDir = Direction.UNDEFINED;
 
     public Main() {
         setTitle("Nikolai Vasilenko");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(width, height);
-        setResizable(false);
+        setSize(800, 800);
+        setResizable(true);
         setLocation(800, 800);
 
-        ImageIcon photo = new ImageIcon("sprite.png");
-        photoLabel = new JLabel(photo);
-        photoLabel.setSize(photo.getIconWidth(), photo.getIconHeight());
-        photoLabel.setVisible(false);
-        add(photoLabel);
+        photo = new ImageIcon("sprite.png");
+        originalWidth = photo.getIconWidth();
+        originalHeight = photo.getIconHeight();
+
+        Image scaledImage = photo.getImage().getScaledInstance(
+                (int) (originalWidth * currentScale), (int) (originalHeight * currentScale), Image.SCALE_SMOOTH);
+        sprite = new JLabel(new ImageIcon(scaledImage));
+        sprite.setSize((int) (originalWidth * currentScale), (int) (originalHeight * currentScale));
+        sprite.setVisible(false);
+        add(sprite);
 
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                photoLabel.setVisible(true);
+                updateSpritePosition(e.getX(), e.getY());
+                sprite.setVisible(true);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                photoLabel.setVisible(false);
+                sprite.setVisible(false);
+                currentScale = 0.25;
             }
         });
 
-        addMouseMotionListener(new MouseMotionListener() {
-            @Override
-            public void mouseDragged(MouseEvent e) {
-
-            }
-
+        addMouseMotionListener(new MouseAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
-                int x = e.getX() - width / 2;
-                int y = e.getY() - height / 2;
-                photoLabel.setLocation(x, y);
+                int mouseX = e.getX();
+                int mouseY = e.getY();
+
+                updateSpritePosition(mouseX, mouseY);
             }
         });
+    }
+
+    private void updateSpritePosition(int mouseX, int mouseY) {
+        int x = mouseX - sprite.getWidth() / 2;
+        int y = mouseY - sprite.getHeight() / 2;
+        sprite.setLocation(x, y);
     }
 
     public static void main(String[] args) {
