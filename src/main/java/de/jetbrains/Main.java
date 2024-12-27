@@ -11,8 +11,10 @@ public class Main extends JFrame {
     private JLabel sprite;
     private ImageIcon photo;
     private int originalWidth, originalHeight;
-    private double currentScale = 0.25; // Start at 1/4 scale
+    private final double INITIAL_SCALE = 0.25; // Start at 1/4 scale
     private int enterX, enterY;
+    private boolean resisingLocked = false;
+    private int prevX = -1, prevY = -1;
 
     enum Side {
         TOP, BOTTOM, LEFT, RIGHT, UNDEFINED;
@@ -34,10 +36,8 @@ public class Main extends JFrame {
         photo = new ImageIcon("sprite.png");
         originalWidth = photo.getIconWidth();
         originalHeight = photo.getIconHeight();
-        Image scaledImage = photo.getImage().getScaledInstance(
-                (int) (originalWidth * currentScale), (int) (originalHeight * currentScale), Image.SCALE_SMOOTH);
-        sprite = new JLabel(new ImageIcon(scaledImage));
-        sprite.setSize((int) (originalWidth * currentScale), (int) (originalHeight * currentScale));
+        sprite = new JLabel();
+        shrinkSprite();
         sprite.setVisible(false);
         panel.add(sprite);
 
@@ -77,8 +77,11 @@ public class Main extends JFrame {
 
             @Override
             public void mouseExited(MouseEvent e) {
+                shrinkSprite();
                 sprite.setVisible(false);
-                currentScale = 0.25;
+                prevX = -1;
+                prevY = -1;
+                resisingLocked = false;
             }
         });
 
@@ -87,6 +90,41 @@ public class Main extends JFrame {
             public void mouseMoved(MouseEvent e) {
                 int mouseX = e.getX();
                 int mouseY = e.getY();
+
+                if (prevX == -1) {
+                    prevX = mouseX;
+                    prevY = mouseY;
+                }
+                else {
+                    int upScale = 0;
+                    int downScale = 0;
+                    switch (enterSide) {
+                        case LEFT:
+                            upScale = mouseX - prevX;
+                            downScale = Math.abs(mouseY - prevY);
+                            break;
+                        case RIGHT:
+                            upScale = prevX - mouseX;
+                            downScale = Math.abs(mouseY - prevY);
+                            break;
+                        case TOP:
+                            upScale = mouseY - prevY;
+                            downScale = Math.abs(mouseX - prevX);
+                            break;
+                        case BOTTOM:
+                            upScale = prevY - mouseY;
+                            downScale = Math.abs(mouseX - prevX);
+                            break;
+                    }
+                    prevX = mouseX;
+                    prevY = mouseY;
+
+                    if (!resisingLocked) {
+                        resizeSprite(upScale);
+                        resizeSprite(-downScale);
+                    }
+                }
+
                 updateSpritePosition(mouseX, mouseY);
             }
         });
@@ -98,13 +136,6 @@ public class Main extends JFrame {
                         + MouseInfo.getPointerInfo().getLocation().y);
                 enterX = MouseInfo.getPointerInfo().getLocation().x;
                 enterY = MouseInfo.getPointerInfo().getLocation().y;
-                sprite.setVisible(true);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                sprite.setVisible(false);
-                currentScale = 0.25;
             }
         });
 
@@ -112,10 +143,37 @@ public class Main extends JFrame {
     }
 
     private void updateSpritePosition(int mouseX, int mouseY) {
-        int x = mouseX - sprite.getWidth() / 2;
-        int y = mouseY - sprite.getHeight() / 2;
+        int x = mouseX - sprite.getWidth() / 2; // mouse points to the left top corner of the sprite
+        int y = mouseY - sprite.getHeight() / 2; // we have to place cursor in the middle of it
         sprite.setLocation(x, y);
     }
+
+    private void resizeSprite(int term) {
+        int newWidth = sprite.getWidth() + term;
+        int newHeight = sprite.getHeight() + term;
+
+        if (newWidth >= originalWidth) {
+            newWidth = originalWidth;
+            newHeight = originalHeight;
+            resisingLocked = true;
+        }
+
+        if (newWidth <= originalWidth * INITIAL_SCALE) {
+            return;
+        }
+
+        Image scaledImage = photo.getImage().getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        sprite.setIcon(new ImageIcon(scaledImage));
+        sprite.setSize(newWidth, newHeight);
+    }
+
+    private void shrinkSprite() {
+        Image scaledImage = photo.getImage().getScaledInstance(
+                (int) (originalWidth * INITIAL_SCALE), (int) (originalHeight * INITIAL_SCALE), Image.SCALE_SMOOTH);
+        sprite.setIcon(new ImageIcon(scaledImage));
+        sprite.setSize((int) (originalWidth * INITIAL_SCALE), (int) (originalHeight * INITIAL_SCALE));
+    }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
