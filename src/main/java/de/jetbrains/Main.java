@@ -1,19 +1,18 @@
 package de.jetbrains;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.sql.SQLOutput;
 
 public class Main extends JFrame {
-    private JLabel sprite;
-    private ImageIcon photo;
+    private final double INITIAL_SCALE = 0.25;
+
+    private final JLabel sprite;
+    private final ImageIcon photo;
     private int originalWidth, originalHeight;
-    private final double INITIAL_SCALE = 0.25; // Start at 1/4 scale
-    private int enterX, enterY;
-    private boolean resisingLocked = false;
+    private int enterX = 0, enterY = 0;
+    private boolean resizingLocked = false;
     private int prevX = -1, prevY = -1;
 
     enum Side {
@@ -48,40 +47,38 @@ public class Main extends JFrame {
         panel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
+                // determine the borders of the panel (x coordinates for left and right, y for top and bottom ones)
                 int left = panel.getLocationOnScreen().x;
                 int right = panel.getLocationOnScreen().x + panel.getWidth();
                 int top = panel.getLocationOnScreen().y;
                 int bottom = panel.getLocationOnScreen().y + panel.getHeight() / 2;
 
+                // determine the entry side depending on how the cursor was positioned relative to the borders when entering
                 if (enterX < left) {
                     enterSide = Side.LEFT;
-                    System.out.println("SIDE: " + enterSide + " : " + left);
                 }
                 else if (enterX > right) {
                     enterSide = Side.RIGHT;
-                    System.out.println("SIDE: " + enterSide + " : " + right);
                 }
                 else if (enterY < top) {
                     enterSide = Side.TOP;
-                    System.out.println("SIDE: " + enterSide + " : " + top);
                 }
                 else if (enterY > bottom) {
                     enterSide = Side.BOTTOM;
-                    System.out.println("SIDE: " + enterSide + " : " + bottom);
                 }
-
-                System.out.println("Enter Coordinates :" + enterX + " " + enterY);
 
                 sprite.setVisible(true);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
+                // reset all the variables back to initial values
                 shrinkSprite();
                 sprite.setVisible(false);
                 prevX = -1;
                 prevY = -1;
-                resisingLocked = false;
+                resizingLocked = false;
+                enterSide = Side.UNDEFINED;
             }
         });
 
@@ -91,40 +88,42 @@ public class Main extends JFrame {
                 int mouseX = e.getX();
                 int mouseY = e.getY();
 
+                // no prev coordinates in the first iteration
                 if (prevX == -1) {
                     prevX = mouseX;
                     prevY = mouseY;
                 }
+                // depending on the side of entry it is either x-relative movement or y-relative movement affect size increase and decrease (respectively)
                 else {
-                    int upScale = 0;
-                    int downScale = 0;
+                    int increase = 0;
+                    int decrease = 0;
                     switch (enterSide) {
                         case LEFT:
-                            upScale = mouseX - prevX;
-                            downScale = Math.abs(mouseY - prevY);
+                            increase = mouseX - prevX;
+                            decrease = Math.abs(mouseY - prevY);
                             break;
                         case RIGHT:
-                            upScale = prevX - mouseX;
-                            downScale = Math.abs(mouseY - prevY);
+                            increase = prevX - mouseX;
+                            decrease = Math.abs(mouseY - prevY);
                             break;
                         case TOP:
-                            upScale = mouseY - prevY;
-                            downScale = Math.abs(mouseX - prevX);
+                            increase = mouseY - prevY;
+                            decrease = Math.abs(mouseX - prevX);
                             break;
                         case BOTTOM:
-                            upScale = prevY - mouseY;
-                            downScale = Math.abs(mouseX - prevX);
+                            increase = prevY - mouseY;
+                            decrease = Math.abs(mouseX - prevX);
                             break;
                     }
+                    // set prev coordinates to determine the diff in the next iteration
                     prevX = mouseX;
                     prevY = mouseY;
 
-                    if (!resisingLocked) {
-                        resizeSprite(upScale);
-                        resizeSprite(-downScale);
+                    if (!resizingLocked) {
+                        resizeSprite(increase);
+                        resizeSprite(-decrease);
                     }
                 }
-
                 updateSpritePosition(mouseX, mouseY);
             }
         });
@@ -132,32 +131,35 @@ public class Main extends JFrame {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                System.out.println(MouseInfo.getPointerInfo().getLocation().x + " "
-                        + MouseInfo.getPointerInfo().getLocation().y);
+                // saving coordinates here to compare them later with panel border coordinates to determine the entry side
                 enterX = MouseInfo.getPointerInfo().getLocation().x;
                 enterY = MouseInfo.getPointerInfo().getLocation().y;
             }
         });
-
         add(marginPanel, BorderLayout.CENTER);
     }
 
     private void updateSpritePosition(int mouseX, int mouseY) {
-        int x = mouseX - sprite.getWidth() / 2; // mouse points to the left top corner of the sprite
-        int y = mouseY - sprite.getHeight() / 2; // we have to place cursor in the middle of it
+        // placing the cursor in the middle of the sprite
+        int x = mouseX - sprite.getWidth() / 2;
+        int y = mouseY - sprite.getHeight() / 2;
+        //
         sprite.setLocation(x, y);
     }
 
     private void resizeSprite(int term) {
+        // works as long as our sprite is square-shaped :)
         int newWidth = sprite.getWidth() + term;
         int newHeight = sprite.getHeight() + term;
 
+        // disable further resizing if 1:1 size is reached
         if (newWidth >= originalWidth) {
             newWidth = originalWidth;
             newHeight = originalHeight;
-            resisingLocked = true;
+            resizingLocked = true;
         }
 
+        // do nothing if sprite shrank back to 1:4 of size
         if (newWidth <= originalWidth * INITIAL_SCALE) {
             return;
         }
